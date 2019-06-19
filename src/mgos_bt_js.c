@@ -17,7 +17,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-
 #include "mgos_bt_gap.h"
 #include "mgos_bt_gattc.h"
 #include "mgos_bt_gatts.h"
@@ -94,6 +93,25 @@ const char *mgos_bt_gap_parse_name_js(struct mg_str *adv_data) {
   memcpy(s_name, name.p, len);
   s_name[len] = '\0';
   return s_name;
+}
+
+/*
+ * XXX: At the moment there is no good way to return non-nul-terminated string
+ * to mjs. So we nul-terminate it in a static variable and return that.
+ * it will only need to remain valid for a short time, mjs will make a copy
+ * of it immediately.
+ */
+const char *mgos_bt_gap_parse_service_data_js(struct mg_str *adv_data, int uuid_len) {
+  struct mgos_bt_uuid  uuid = {
+      .len = uuid_len,
+  };
+
+  static char s_service[MGOS_BT_GAP_ADV_DATA_MAX_LEN];
+  struct mg_str service = mgos_bt_gap_parse_service_data(*adv_data, &uuid);
+  size_t len = MIN(service.len, sizeof(s_service) - 1);
+  memcpy(s_service, service.p, len);
+  s_service[len] = '\0';
+  return s_service;
 }
 
 bool mgos_bt_gattc_connect_js(const char *addr_s) {

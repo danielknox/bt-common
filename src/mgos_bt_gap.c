@@ -16,7 +16,6 @@
  */
 
 #include "mgos_bt_gap.h"
-
 #include <string.h>
 
 #ifdef MGOS_HAVE_MJS
@@ -52,29 +51,46 @@ struct mg_str mgos_bt_gap_parse_name(struct mg_str adv_data) {
 struct mg_str mgos_bt_gap_parse_service_data(struct mg_str adv_data,
                                              const struct mgos_bt_uuid *svc_uuid) {
   enum mgos_bt_gap_eir_type et;
+
+  // Existing MGOS_BT_GAP_EIR_SERVICE_DATA types don't seem to regularly be used in adv packets. I believe complete and incomplete are prefered.
+  // This currently only uses complete types. Perhaps rather than passing the size of uuid to this, you should pass the desired type? 
+  // Or we just scan for all different service data for a device and populate a structure?
   switch (svc_uuid->len) {
     case sizeof(svc_uuid->uuid.uuid16):
-      et = MGOS_BT_GAP_EIR_SERVICE_DATA_16;
+      et = MGOS_BT_GAP_EIR_COMPLETE_SERVICE_DATA_16;
       break;
     case sizeof(svc_uuid->uuid.uuid32):
-      et = MGOS_BT_GAP_EIR_SERVICE_DATA_32;
+      et = MGOS_BT_GAP_EIR_COMPLETE_SERVICE_DATA_32;
       break;
     case sizeof(svc_uuid->uuid.uuid128):
-      et = MGOS_BT_GAP_EIR_SERVICE_DATA_128;
+      et = MGOS_BT_GAP_EIR_COMPLETE_SERVICE_DATA_128;
       break;
     default:
       goto out;
   }
-  while (adv_data.len > 0) {
+
+  // This currently works, but technically 'complete' type means we can have more than one service uuid in a advertising packet.
+  // Currently we only return one - this should probably be an array of services.
+  struct mg_str s = mgos_bt_gap_parse_adv_data(adv_data, et);
+  if (s.len == 0 || s.len < svc_uuid->len) {
+    goto out;
+  } else {
+    return s;
+  }
+
+  // Not sure what this does, but certainly doesn't seem to copy right information?
+ /*  while (adv_data.len > 0) {
     struct mg_str svc_data = mgos_bt_gap_parse_adv_data(adv_data, et);
     if (svc_data.len < svc_uuid->len) break;
     if (memcmp(svc_data.p, &svc_uuid->uuid, svc_uuid->len) == 0) {
-      return mg_mk_str_n(svc_data.p + svc_uuid->len, svc_data.len - svc_uuid->len);
+      struct mg_str s = mg_mk_str_n(svc_data.p + svc_uuid->len, svc_data.len - svc_uuid->len);
+      LOG(LL_DEBUG,("Data length inner function: %d", s.len));
+      return s;
     }
     svc_data.p += svc_data.len;
     adv_data.len = adv_data.len - (svc_data.p - adv_data.p);
     adv_data.p = svc_data.p;
-  }
+  } */
 out:
   return mg_mk_str_n(NULL, 0);
 }
